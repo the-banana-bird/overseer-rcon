@@ -12,6 +12,9 @@ public class RconPacket {
 	protected static final int TYPE_RESPONSE_AUTH = 2;
 	protected static final int TYPE_RESPONSE_VALUE = 0;
 
+	private static final int MAX_PACKET_SIZE = 4096;
+	private static final int MAX_BODY_SIZE = getBodySizeFromPacketDataSize(MAX_PACKET_SIZE);
+
 	private int id;
 	private int type;
 	private String body;
@@ -19,7 +22,7 @@ public class RconPacket {
 	protected RconPacket(int id, int type, String body) {
 		this.id = id;
 		this.type = type;
-		this.body = body;
+		this.body = (body.length() <= MAX_BODY_SIZE) ? body : body.substring(0, MAX_BODY_SIZE);
 	}
 
 	protected static void send(RconPacket packet, OutputStream stream) throws IOException {

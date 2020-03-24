@@ -5,19 +5,6 @@ import java.net.Socket;
 import java.util.Random;
 
 public class RconSession {
-	public static void main(String[] args) {
-		RconSession session = new RconSession("", 0, "");
-
-		try {
-			session.connect();
-			session.execute("saveworld");
-			session.execute("doexit");
-			session.disconnect();
-		} catch (StateTransitionException e) {
-			e.printStackTrace();
-		}
-	}
-
 	private String ip;
 	private int port;
 	private String password;
@@ -65,26 +52,45 @@ public class RconSession {
 		}
 	}
 
-	public void execute(String command) throws StateTransitionException {
+	public String execute(String command) throws StateTransitionException {
 		transitionState(RconSessionState.EXECUTING);
+
+		StringBuilder responseBuilder = new StringBuilder();
 
 		try {
 			// Generate a unique id for this transaction
 			int _txid = sessionRandom.nextInt();
+			int _tailid = sessionRandom.nextInt();
 
 			// Send an RCON exec request
 			RconPacket execRequest = new RconPacket(_txid, RconPacket.TYPE_REQUEST_EXECCOMMAND, command);
 			RconPacket.send(execRequest, sessionSocket.getOutputStream());
 
-			// Await an RCON value response
-			RconPacket execResponse = RconPacket.receive(sessionSocket.getInputStream());
+			// Send an RCON exec tail
+			// The exec response can be multiple packets. The tail response is delivered
+			// last, marking the "tail".
+			RconPacket execTail = new RconPacket(_tailid, RconPacket.TYPE_RESPONSE_VALUE, "");
+			RconPacket.send(execTail, sessionSocket.getOutputStream());
 
-			// Verify response is correct
-			if (execResponse.getType() != RconPacket.TYPE_RESPONSE_VALUE || execResponse.getID() != _txid)
-				throw new RconPacketException(String.format("Bad RCON response for command: %s", command));
+			// Await response packets
+			boolean tailRead = false;
+			do {
+				RconPacket execResponse = RconPacket.receive(sessionSocket.getInputStream());
 
-			// Display response text
-			System.out.print(execResponse.getBody());
+				// Verify response is either command output or tail
+				if (execResponse.getType() != RconPacket.TYPE_RESPONSE_VALUE
+						|| (execResponse.getID() != _txid && execResponse.getID() != _tailid))
+					throw new RconPacketException(String.format("Bad RCON response for command: %s", command));
+
+				if (execResponse.getID() == _tailid) {
+					// TailID means the original response was exhausted, so we stop reading
+					// responses.
+					tailRead = true;
+				} else {
+					// TXID response gets appended to the overall response.
+					responseBuilder.append(execResponse.getBody());
+				}
+			} while (!tailRead);
 
 			// Success, execution completed
 			transitionState(RconSessionState.CONNECTED);
@@ -93,6 +99,8 @@ public class RconSession {
 		} catch (StateTransitionException e) {
 			throw e;
 		}
+
+		return responseBuilder.toString();
 	}
 
 	public void disconnect() throws StateTransitionException {
@@ -109,27 +117,7 @@ public class RconSession {
 	}
 
 	private void transitionState(RconSessionState nextState) throws StateTransitionException {
-		boolean valid = false;
-
-		switch (_sessionState) {
-		case DISCONNECTED:
-			valid = (nextState == RconSessionState.CONNECTING);
-			break;
-		case CONNECTING:
-			valid = (nextState == RconSessionState.AUTHENTICATING || nextState == RconSessionState.DISCONNECTED);
-			break;
-		case AUTHENTICATING:
-			valid = (nextState == RconSessionState.CONNECTED || nextState == RconSessionState.DISCONNECTED);
-			break;
-		case CONNECTED:
-			valid = (nextState == RconSessionState.EXECUTING || nextState == RconSessionState.DISCONNECTED);
-			break;
-		case EXECUTING:
-			valid = (nextState == RconSessionState.CONNECTED || nextState == RconSessionState.DISCONNECTED);
-			break;
-		}
-
-		if (!valid)
+		if (!RconSessionState.isTransitionValid(_sessionState, nextState))
 			throw new StateTransitionException(_sessionState, nextState);
 		else
 			_sessionState = nextState;
