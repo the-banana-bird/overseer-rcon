@@ -20,7 +20,7 @@ public class OverseerController {
 	}
 
 	public OverseerServerViewModel viewMockServer() {
-		return new OverseerServerViewModel("Aberration", new RconSession("192.168.15.70", 27033, "krabsisa"));
+		return new OverseerServerViewModel("", new RconSession("", 0, ""));
 	}
 
 }
