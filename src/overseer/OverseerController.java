@@ -3,6 +3,7 @@ package overseer;
 import java.util.ArrayList;
 import java.util.List;
 
+import overseer.rcon.RconSession;
 import overseer.view.OverseerServerViewModel;
 import overseer.view.OverseerViewModel;
 
@@ -19,7 +20,7 @@ public class OverseerController {
 	}
 
 	public OverseerServerViewModel viewMockServer() {
-		return new OverseerServerViewModel("Mock Server", "192.168.0.0", 27020, "password", null);
+		return new OverseerServerViewModel("Aberration", new RconSession("192.168.15.70", 27033, "krabsisa"));
 	}
 
 }

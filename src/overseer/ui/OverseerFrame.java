@@ -8,6 +8,8 @@ import javax.swing.JPanel;
 import javax.swing.SpringLayout;
 import javax.swing.border.EmptyBorder;
 
+import overseer.OverseerController;
+
 public class OverseerFrame extends JFrame {
 
 	private JPanel contentPane;
@@ -15,7 +17,11 @@ public class OverseerFrame extends JFrame {
 	/**
 	 * Launch the application.
 	 */
+	public static OverseerController controller;
+
 	public static void main(String[] args) {
+		controller = new OverseerController();
+
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
 				try {
@@ -42,7 +48,7 @@ public class OverseerFrame extends JFrame {
 		SpringLayout sl_contentPane = new SpringLayout();
 		contentPane.setLayout(sl_contentPane);
 
-		OverseerServerPanel overseerServerPanel = new OverseerServerPanel();
+		OverseerServerPanel overseerServerPanel = new OverseerServerPanel(controller.viewMockServer());
 		sl_contentPane.putConstraint(SpringLayout.NORTH, overseerServerPanel, 0, SpringLayout.NORTH, contentPane);
 		sl_contentPane.putConstraint(SpringLayout.WEST, overseerServerPanel, 0, SpringLayout.WEST, contentPane);
 		sl_contentPane.putConstraint(SpringLayout.SOUTH, overseerServerPanel, 0, SpringLayout.SOUTH, contentPane);

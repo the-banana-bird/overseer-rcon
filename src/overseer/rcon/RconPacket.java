@@ -25,6 +25,22 @@ public class RconPacket {
 		this.body = (body.length() <= MAX_BODY_SIZE) ? body : body.substring(0, MAX_BODY_SIZE);
 	}
 
+	public int getID() {
+		return this.id;
+	}
+
+	public int getType() {
+		return this.type;
+	}
+
+	public String getBody() {
+		return this.body;
+	}
+
+	private boolean isKeepAlive() {
+		return id == 0 && type == 0 && body.equals("Keep Alive");
+	}
+
 	protected static void send(RconPacket packet, OutputStream stream) throws IOException {
 		// Collect sizes, allocate buffer
 		int packetSize = RconPacket.getPacketDataSize(packet.body);
@@ -49,39 +65,47 @@ public class RconPacket {
 	}
 
 	protected static RconPacket receive(InputStream stream) throws IOException {
-		// Contents of response packet header
-		// int Size +4
-		// int ID +4
-		// int Type +4
-		byte[] header = new byte[4 * 3];
+		RconPacket response;
 
-		// Read the header
-		stream.read(header);
+		// Sometimes the server sends KeepAlive packets without client input.
+		// Consume KeepAlive packets. Return the first non-KeepAlive packet.
+		do {
+			// Contents of response packet header
+			// int Size +4
+			// int ID +4
+			// int Type +4
+			byte[] header = new byte[4 * 3];
 
-		// Parse the header with a byte buffer
-		ByteBuffer buffer = ByteBuffer.wrap(header);
-		buffer.order(ByteOrder.LITTLE_ENDIAN);
+			// Read the header
+			stream.read(header);
 
-		int packetSize = buffer.getInt();
-		int responseId = buffer.getInt();
-		int responseType = buffer.getInt();
+			// Parse the header with a byte buffer
+			ByteBuffer buffer = ByteBuffer.wrap(header);
+			buffer.order(ByteOrder.LITTLE_ENDIAN);
 
-		// Parse the body with the header info
-		int responseBodySize = getBodySizeFromPacketDataSize(packetSize);
-		byte[] responseBody = new byte[responseBodySize];
+			int packetSize = buffer.getInt();
+			int responseId = buffer.getInt();
+			int responseType = buffer.getInt();
 
-		// Read body bytes
-		int bytesRead = stream.read(responseBody);
+			// Parse the body with the header info
+			int responseBodySize = getBodySizeFromPacketDataSize(packetSize);
+			byte[] responseBody = new byte[responseBodySize];
 
-		// Confirm body was read entirely
-		if (bytesRead != responseBodySize)
-			throw new IOException("Bytes read does not match body length for RCON response");
+			// Read body bytes
+			int bytesRead = stream.read(responseBody);
 
-		// Read nullterm byte for body string and entire packet
-		stream.read(new byte[2]);
+			// Confirm body was read entirely
+			if (bytesRead != responseBodySize)
+				throw new IOException("Bytes read does not match body length for RCON response");
 
-		// Return response
-		return new RconPacket(responseId, responseType, new String(responseBody));
+			// Read nullterm byte for body string and entire packet
+			stream.read(new byte[2]);
+
+			response = new RconPacket(responseId, responseType, new String(responseBody));
+		} while (response.isKeepAlive());
+
+		// Return the first non-KeepAlive packet.
+		return response;
 	}
 
 	private static int getPacketDataSize(String body) {
@@ -109,17 +133,5 @@ public class RconPacket {
 		// int Size +4
 		// (Rest Of Packet) +packetSize()
 		return 4 + packetSize;
-	}
-
-	public int getID() {
-		return this.id;
-	}
-
-	public int getType() {
-		return this.type;
-	}
-
-	public String getBody() {
-		return this.body;
 	}
 }
