@@ -20,10 +20,10 @@ import javax.swing.border.EtchedBorder;
 import javax.swing.border.TitledBorder;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+import javax.swing.text.DefaultCaret;
 
 import overseer.rcon.RconSession;
 import overseer.rcon.RconSessionState;
-import overseer.rcon.StateTransitionException;
 import overseer.view.OverseerServerViewModel;
 
 public class OverseerServerPanel extends JPanel {
@@ -55,15 +55,14 @@ public class OverseerServerPanel extends JPanel {
 		this.viewModel.session.addStateChangeListener(sessionStateChangeListener);
 		this.viewModel.session.addOutputChangeListener(sessionOutputChangeListener);
 
+		// Outer styled border
 		setBorder(new TitledBorder(new EtchedBorder(EtchedBorder.LOWERED, null, null), this.viewModel.name,
 				TitledBorder.LEADING, TitledBorder.TOP, null, null));
 		SpringLayout springLayout = new SpringLayout();
 		setLayout(springLayout);
 
+		// Toolbar
 		JToolBar toolBar = new JToolBar();
-		springLayout.putConstraint(SpringLayout.NORTH, toolBar, 2, SpringLayout.NORTH, this);
-		springLayout.putConstraint(SpringLayout.WEST, toolBar, 2, SpringLayout.WEST, this);
-		springLayout.putConstraint(SpringLayout.EAST, toolBar, 2, SpringLayout.EAST, this);
 		toolBar.setFloatable(false);
 		add(toolBar);
 
@@ -88,13 +87,6 @@ public class OverseerServerPanel extends JPanel {
 		btnSaveExit.setToolTipText("");
 		toolBar.add(btnSaveExit);
 
-		txtOutput = new JTextArea();
-		springLayout.putConstraint(SpringLayout.WEST, txtOutput, 2, SpringLayout.WEST, this);
-		txtOutput.setBackground(UIManager.getColor("TextArea.foreground"));
-		txtOutput.setForeground(UIManager.getColor("TextArea.background"));
-		txtOutput.setEditable(false);
-		springLayout.putConstraint(SpringLayout.NORTH, txtOutput, 2, SpringLayout.SOUTH, toolBar);
-
 		JSeparator separator2 = new JSeparator();
 		separator2.setOrientation(SwingConstants.VERTICAL);
 		toolBar.add(separator2);
@@ -118,15 +110,10 @@ public class OverseerServerPanel extends JPanel {
 		btnDelete.setToolTipText("");
 		btnDelete.setForeground(new Color(128, 0, 0));
 		toolBar.add(btnDelete);
-		add(txtOutput);
 
+		// Players window
 		JScrollPane scrollPanePlayers = new JScrollPane();
-		springLayout.putConstraint(SpringLayout.EAST, txtOutput, -2, SpringLayout.WEST, scrollPanePlayers);
 		scrollPanePlayers.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
-		springLayout.putConstraint(SpringLayout.NORTH, scrollPanePlayers, 2, SpringLayout.SOUTH, toolBar);
-		springLayout.putConstraint(SpringLayout.WEST, scrollPanePlayers, -162, SpringLayout.EAST, this);
-		springLayout.putConstraint(SpringLayout.SOUTH, scrollPanePlayers, 2, SpringLayout.SOUTH, this);
-		springLayout.putConstraint(SpringLayout.EAST, scrollPanePlayers, 2, SpringLayout.EAST, this);
 		add(scrollPanePlayers);
 
 		txtPlayers = new JTextArea();
@@ -134,25 +121,57 @@ public class OverseerServerPanel extends JPanel {
 		txtPlayers.setEditable(false);
 		scrollPanePlayers.setViewportView(txtPlayers);
 
+		// Output window
+		JScrollPane scrollPaneOutput = new JScrollPane();
+		add(scrollPaneOutput);
+
+		txtOutput = new JTextArea();
+		txtOutput.setBackground(UIManager.getColor("TextArea.foreground"));
+		txtOutput.setForeground(UIManager.getColor("TextArea.background"));
+		txtOutput.setEditable(false);
+		DefaultCaret caret = (DefaultCaret) txtOutput.getCaret();
+		caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
+		scrollPaneOutput.setViewportView(txtOutput);
+
+		// Command & execute bar
 		txtCommand = new JTextField();
 		txtCommand.setForeground(UIManager.getColor("TextField.background"));
 		txtCommand.setBackground(UIManager.getColor("TextField.foreground"));
-		springLayout.putConstraint(SpringLayout.NORTH, txtCommand, 2, SpringLayout.SOUTH, txtOutput);
-		springLayout.putConstraint(SpringLayout.WEST, txtCommand, 2, SpringLayout.WEST, this);
 		txtCommand.setToolTipText("Enter commands here");
-		springLayout.putConstraint(SpringLayout.SOUTH, txtCommand, 2, SpringLayout.SOUTH, this);
-		add(txtCommand);
 		txtCommand.setColumns(10);
+		add(txtCommand);
 
 		btnExecute = new JButton("");
 		btnExecute.setAction(actionExecute);
 		btnExecute.setEnabled(false);
-		springLayout.putConstraint(SpringLayout.EAST, txtCommand, -2, SpringLayout.WEST, btnExecute);
-		springLayout.putConstraint(SpringLayout.SOUTH, btnExecute, 2, SpringLayout.SOUTH, this);
-		springLayout.putConstraint(SpringLayout.EAST, btnExecute, -2, SpringLayout.WEST, scrollPanePlayers);
-		springLayout.putConstraint(SpringLayout.SOUTH, txtOutput, -2, SpringLayout.NORTH, btnExecute);
 		btnExecute.setToolTipText("");
 		add(btnExecute);
+
+		// Layout manager stuff
+		springLayout.putConstraint(SpringLayout.NORTH, toolBar, 2, SpringLayout.NORTH, this);
+		springLayout.putConstraint(SpringLayout.WEST, toolBar, 2, SpringLayout.WEST, this);
+		springLayout.putConstraint(SpringLayout.EAST, toolBar, 2, SpringLayout.EAST, this);
+
+		springLayout.putConstraint(SpringLayout.NORTH, scrollPanePlayers, 2, SpringLayout.SOUTH, toolBar);
+		springLayout.putConstraint(SpringLayout.WEST, scrollPanePlayers, -162, SpringLayout.EAST, this);
+		springLayout.putConstraint(SpringLayout.SOUTH, scrollPanePlayers, 2, SpringLayout.SOUTH, this);
+		springLayout.putConstraint(SpringLayout.EAST, scrollPanePlayers, 2, SpringLayout.EAST, this);
+
+		springLayout.putConstraint(SpringLayout.NORTH, scrollPaneOutput, 2, SpringLayout.SOUTH, toolBar);
+		springLayout.putConstraint(SpringLayout.WEST, scrollPaneOutput, 2, SpringLayout.WEST, this);
+		springLayout.putConstraint(SpringLayout.SOUTH, scrollPaneOutput, -2, SpringLayout.NORTH, btnExecute);
+		springLayout.putConstraint(SpringLayout.EAST, scrollPaneOutput, -2, SpringLayout.WEST, scrollPanePlayers);
+
+		springLayout.putConstraint(SpringLayout.WEST, txtCommand, 2, SpringLayout.WEST, this);
+		springLayout.putConstraint(SpringLayout.SOUTH, txtCommand, 2, SpringLayout.SOUTH, this);
+		springLayout.putConstraint(SpringLayout.NORTH, txtCommand, 2, SpringLayout.SOUTH, scrollPaneOutput);
+		springLayout.putConstraint(SpringLayout.EAST, txtCommand, -2, SpringLayout.WEST, btnExecute);
+
+		springLayout.putConstraint(SpringLayout.SOUTH, btnExecute, 2, SpringLayout.SOUTH, this);
+		springLayout.putConstraint(SpringLayout.EAST, btnExecute, -2, SpringLayout.WEST, scrollPanePlayers);
+
+		// Auto-connect
+		this.viewModel.session.connect();
 	}
 
 	private class SwingActionConnectDisconnect extends AbstractAction {
@@ -166,14 +185,10 @@ public class OverseerServerPanel extends JPanel {
 		public void actionPerformed(ActionEvent e) {
 			RconSession session = viewModel.session;
 
-			try {
-				if (session.getSessionState() == RconSessionState.DISCONNECTED)
-					session.connect();
-				else
-					session.disconnect();
-			} catch (StateTransitionException ex) {
-				ex.printStackTrace();
-			}
+			if (session.getSessionState() == RconSessionState.DISCONNECTED)
+				session.connect();
+			else
+				session.disconnect();
 		}
 	}
 
@@ -187,12 +202,9 @@ public class OverseerServerPanel extends JPanel {
 
 		public void actionPerformed(ActionEvent e) {
 			RconSession session = viewModel.session;
-			try {
-				// Execute command in RCON session
-				session.execute("SaveWorld");
-			} catch (StateTransitionException ex) {
-				ex.printStackTrace();
-			}
+
+			// Execute command in RCON session
+			session.execute("SaveWorld");
 		}
 	}
 
@@ -206,12 +218,9 @@ public class OverseerServerPanel extends JPanel {
 
 		public void actionPerformed(ActionEvent e) {
 			RconSession session = viewModel.session;
-			try {
-				// Execute command in RCON session
-				session.execute("SaveWorld | DoExit");
-			} catch (StateTransitionException ex) {
-				ex.printStackTrace();
-			}
+
+			// Execute command in RCON session
+			session.execute("SaveWorld | DoExit");
 		}
 	}
 
@@ -253,16 +262,13 @@ public class OverseerServerPanel extends JPanel {
 				return;
 
 			RconSession session = viewModel.session;
-			try {
-				// Consume command string from command text box
-				String command = txtCommand.getText();
-				txtCommand.setText(new String());
 
-				// Execute command in RCON session
-				session.execute(command);
-			} catch (StateTransitionException ex) {
-				ex.printStackTrace();
-			}
+			// Consume command string from command text box
+			String command = txtCommand.getText();
+			txtCommand.setText(new String());
+
+			// Execute command in RCON session
+			session.execute(command);
 		}
 	}
 

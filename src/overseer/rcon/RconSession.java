@@ -5,6 +5,7 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -33,82 +34,112 @@ public class RconSession {
 		this.sessionLog = new StringBuilder();
 	}
 
-	public void connect() throws StateTransitionException {
-		transitionState(RconSessionState.CONNECTING);
-		logn(String.format("[OverseerRCON] Connecting to %s:%d", ip, port));
+	public void connect() {
+		Runnable connectRunnable = () -> {
+			synchronized (this) {
+				try {
+					transitionState(RconSessionState.CONNECTING);
+					logn(String.format("[OverseerRCON] Connecting to %s:%d", ip, port));
 
-		try {
-			// Open TCP socket
-			sessionSocket = new Socket(ip, port);
-			_sessionId = sessionRandom.nextInt();
+					try {
+						// Open TCP socket
+						sessionSocket = new Socket(ip, port);
+						_sessionId = sessionRandom.nextInt();
 
-			// Authenticate with server
-			transitionState(RconSessionState.AUTHENTICATING);
-			logn("[OverseerRCON] Authenticating");
+						// Authenticate with server
+						transitionState(RconSessionState.AUTHENTICATING);
+						logn("[OverseerRCON] Authenticating");
 
-			RconPacket authRequest = new RconPacket(_sessionId, RconPacket.TYPE_REQUEST_AUTH, password);
-			RconPacket.send(authRequest, sessionSocket.getOutputStream());
+						RconPacket authRequest = new RconPacket(_sessionId, RconPacket.TYPE_REQUEST_AUTH, password);
+						RconPacket.send(authRequest, sessionSocket.getOutputStream());
 
-			RconPacket authResponse = RconPacket.receive(sessionSocket.getInputStream());
+						RconPacket authResponse = RconPacket.receive(sessionSocket.getInputStream());
 
-			if (authResponse.getType() != RconPacket.TYPE_RESPONSE_AUTH || authResponse.getID() != _sessionId)
-				throw new AuthenticationException(ip, port);
+						if (authResponse.getType() != RconPacket.TYPE_RESPONSE_AUTH
+								|| authResponse.getID() != _sessionId)
+							throw new AuthenticationException(ip, port);
 
-			// Success, session is connected
-			transitionState(RconSessionState.CONNECTED);
-			logn("[OverseerRCON] Connected");
-		} catch (IOException | AuthenticationException e) {
-			disconnect();
-			e.printStackTrace();
-		} catch (StateTransitionException e) {
-			throw e;
-		}
+						// Success, session is connected
+						transitionState(RconSessionState.CONNECTED);
+						logn("[OverseerRCON] Connected");
+					} catch (IOException | AuthenticationException e) {
+						disconnect();
+						e.printStackTrace();
+					} catch (StateTransitionException e) {
+						throw e;
+					}
+				} catch (StateTransitionException e) {
+					e.printStackTrace();
+				}
+			}
+		};
+
+		CompletableFuture.runAsync(connectRunnable);
 	}
 
-	public String execute(String command) throws StateTransitionException {
-		transitionState(RconSessionState.EXECUTING);
-		logn(String.format(">>> %s <<<", command));
+	public void execute(String command) {
+		Runnable executeRunnable = () -> {
+			synchronized (this) {
+				try {
+					transitionState(RconSessionState.EXECUTING);
+					logn(String.format(">>> %s <<<", command));
 
-		String response = "<Error executing command>";
+					String response = "<Error executing command>";
 
-		try {
-			// Generate a unique id for this transaction
-			int _txid = sessionRandom.nextInt();
+					try {
+						// Generate a unique id for this transaction
+						int _txid = sessionRandom.nextInt();
 
-			// Send an RCON exec request
-			RconPacket execRequest = new RconPacket(_txid, RconPacket.TYPE_REQUEST_EXECCOMMAND, command);
-			RconPacket.send(execRequest, sessionSocket.getOutputStream());
+						// Send an RCON exec request
+						RconPacket execRequest = new RconPacket(_txid, RconPacket.TYPE_REQUEST_EXECCOMMAND, command);
+						RconPacket.send(execRequest, sessionSocket.getOutputStream());
 
-			// Await response packets
-			RconPacket execResponse = RconPacket.receive(sessionSocket.getInputStream());
+						// Await response packets
+						RconPacket execResponse = RconPacket.receive(sessionSocket.getInputStream());
 
-			// Verify response is command output
-			if (execResponse.getType() != RconPacket.TYPE_RESPONSE_VALUE || (execResponse.getID() != _txid))
-				throw new RconPacketException(String.format("Bad RCON response for command: %s", command));
+						// Verify response is command output
+						if (execResponse.getType() != RconPacket.TYPE_RESPONSE_VALUE || (execResponse.getID() != _txid))
+							throw new RconPacketException(String.format("Bad RCON response for command: %s", command));
 
-			response = execResponse.getBody();
-		} catch (IOException | RconPacketException e) {
-			e.printStackTrace();
-		} finally {
-			transitionState(RconSessionState.CONNECTED);
-		}
+						response = execResponse.getBody();
+					} catch (IOException | RconPacketException e) {
+						e.printStackTrace();
+					} finally {
+						transitionState(RconSessionState.CONNECTED);
+					}
 
-		log(response);
-		return response;
+					log(response);
+				} catch (StateTransitionException e) {
+					e.printStackTrace();
+				}
+			}
+		};
+
+		CompletableFuture.runAsync(executeRunnable);
 	}
 
-	public void disconnect() throws StateTransitionException {
-		transitionState(RconSessionState.DISCONNECTED);
-		logn("[OverseerRCON] Disconnected");
+	public void disconnect() {
+		Runnable disconnectRunnable = () -> {
+			synchronized (this) {
+				try {
+					transitionState(RconSessionState.DISCONNECTED);
+					logn("[OverseerRCON] Disconnected");
 
-		try {
-			if (sessionSocket != null && !sessionSocket.isClosed())
-				sessionSocket.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} finally {
-			sessionSocket = null;
-		}
+					try {
+						if (sessionSocket != null && !sessionSocket.isClosed())
+							sessionSocket.close();
+					} catch (IOException e) {
+						e.printStackTrace();
+					} finally {
+						sessionSocket = null;
+					}
+				} catch (StateTransitionException e) {
+					e.printStackTrace();
+				}
+			}
+		};
+
+		CompletableFuture.runAsync(disconnectRunnable);
 	}
 
 	public RconSessionState getSessionState() {
